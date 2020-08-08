@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo yum install python3 -y
-sudo yum install python3-pip -y
+sudo dnf install python3 -y
+sudo dnf install python3-pip -y
 sudo pip3 install ansible
-sudo yum update -y
+sudo dnf update -y

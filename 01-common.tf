@@ -29,6 +29,7 @@ data "aws_availability_zones" "main" {}
 data "aws_ami" "rhel_ami" {
     most_recent = true
     owners      = ["${var.rhel_ami_owner}"]
+    
     filter {
         name = "root-device-type"
         values = ["ebs"]
@@ -39,6 +40,14 @@ data "aws_ami" "rhel_ami" {
     }
     filter {
         name = "name"
-        values = ["RHEL-8.2.0_HVM-*-x86_64*"]
+        values = ["Fedora-Cloud-Base-32-*x86_64-hvm-${var.aws_region}*"]
     }
 }
+    /*
+    #cheating
+    filter {
+        name = "image-id"
+        values = ["ami-0ff5d4e010e1524ee"]
+    }
+    */    
+

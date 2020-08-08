@@ -44,6 +44,7 @@ resource "aws_security_group" "allow_ssh" {
 
 }
 
+
 resource "local_file" "ansible_inventory" {
     content = templatefile("ansible_inventory.tmpl",
         {
@@ -52,9 +53,18 @@ resource "local_file" "ansible_inventory" {
     )  
     filename = "${path.module}\\ansible_inventory"
 }
+resource "local_file" "ansible_playbook" {
+    content = templatefile("builddnf.tmpl",
+        {
+            private-ips = flatten(aws_network_interface.storage-cluster-glusterd-net-if.*.private_ips)
+        }
+    )  
+    filename = "${path.module}\\builddnf.yaml"
+}
+
 /*
 output "hosts" {
-    value = local_file.ansible_inventory
+    value = local_file.ansible_playbook
 }
 */
 
@@ -63,6 +73,7 @@ resource "aws_instance" "storage-cluster-client-instance" {
     instance_type = var.instance_type
     key_name = aws_key_pair.rsa_ssh_key.key_name
     user_data = file("userdata_client.txt")
+    depends_on = [local_file.ansible_inventory]
     network_interface {
         network_interface_id = aws_network_interface.storage-cluster-client-net-if.id
         device_index = 0
@@ -74,7 +85,7 @@ resource "aws_instance" "storage-cluster-client-instance" {
         connection {
             host = aws_eip.storage-cluster-net-eip.public_ip
             type = "ssh"
-            user = "ec2-user"
+            user = "fedora"
             private_key = file(var.ssh_priv_key)
         }
     }
@@ -86,7 +97,7 @@ resource "aws_instance" "storage-cluster-client-instance" {
         connection {
             host = aws_eip.storage-cluster-net-eip.public_ip
             type        = "ssh"
-            user        = "ec2-user"
+            user        = "fedora"
             private_key = file(var.ssh_priv_key)
         }
     }
@@ -103,7 +114,41 @@ resource "aws_instance" "storage-cluster-client-instance" {
         connection {
             host = aws_eip.storage-cluster-net-eip.public_ip
             type = "ssh"
-            user = "ec2-user"
+            user = "fedora"
+            private_key = file(var.ssh_priv_key)
+        }
+    }
+    provisioner "file" {
+        #why do I need to wrap this in file()?
+        content = file("${path.module}\\ansible_inventory")
+        destination = "~/ansible_files/hosts"
+        connection {
+            host = aws_eip.storage-cluster-net-eip.public_ip
+            type = "ssh"
+            user = "fedora"
+            private_key = file(var.ssh_priv_key)
+        }
+    }
+    provisioner "file" {
+        #why do I need to wrap this in file()?
+        content = file("${path.module}\\builddnf.yaml")
+        destination = "~/ansible_files/builddnf.yaml"
+        connection {
+            host = aws_eip.storage-cluster-net-eip.public_ip
+            type = "ssh"
+            user = "fedora"
+            private_key = file(var.ssh_priv_key)
+        }
+    }
+    provisioner "remote-exec" {
+        inline = [
+            "sleep 2m",
+            "ansible-playbook -i ~/ansible_files/hosts -u fedora ~/ansible_files/builddnf.yaml -e 'ansible_python_interpreter=/usr/bin/python3' --ssh-common-args='-o StrictHostKeyChecking=no'"
+        ]
+        connection {
+            host = aws_eip.storage-cluster-net-eip.public_ip
+            type        = "ssh"
+            user        = "fedora"
             private_key = file(var.ssh_priv_key)
         }
     }
