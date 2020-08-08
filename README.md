@@ -1,6 +1,6 @@
 #LR POC
 
-# .3 release
+# 0.1 release
 
 This release fulfills the requirements of the POC, namely:
 - **The cluster must successfully deploy from scratch by running a single command or script**
