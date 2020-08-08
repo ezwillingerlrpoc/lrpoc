@@ -1,0 +1,26 @@
+---
+- name: Setup Gluster nodes
+  hosts: gluster_nodes
+  become: true
+
+  #comes from Terraform
+  vars_files:
+    - vars.yml
+
+  
+  - name: upgrade all packages
+    yum:
+      name: *
+      state: latest
+  - name: install gluster
+    yum:
+      name: glusterfs
+      state: latest
+
+  - name: create gluster volume
+    gluster_volume:
+      state: present
+      name: vol1
+      replicas: 2
+
+      bricks

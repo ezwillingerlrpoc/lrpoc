@@ -1,0 +1,16 @@
+#!/bin/bash
+sudo yum install python3 -y
+sudo yum install python3-pip -y
+sudo pip3 install ansible -y 
+sudo yum update -y
+
+cat > /etc/ansible/hosts <<EOH
+[gluster_nodes]
+%{ for ip in private-ips ~}
+${ip}
+%{ endfor ~}
+EOH
+
+
+
+

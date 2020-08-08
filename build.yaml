@@ -1,0 +1,33 @@
+---
+- name: Setup Gluster nodes
+  hosts: gluster_nodes
+  become: true
+  tasks:
+    - name: Create a ext4 filesystem on /dev/sdb1 and check disk blocks
+      filesystem:
+        fstype: xfs
+        dev: /dev/xvdf
+    - name: mount volumes1
+      mount:
+        path: /glustervol1
+        state: mounted
+        fstype: xfs
+        src: /dev/xvdf
+    - name: install gluster
+      yum:
+        name: glusterfs
+        state: latest
+    - name: install gluster-cli
+      yum:
+        name: glusterfs-cli
+        state: latest
+    - name: create gluster volume
+      gluster_volume:
+        state: started
+        name: glustervol
+        replicas: 2
+        bricks: /glustervol/brick1/b1
+        cluster: 
+          - 10.111.11.58
+          - 10.111.11.94
+      run_once: true
