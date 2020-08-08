@@ -36,7 +36,7 @@ Furthermore, it displays most or all of the characteristics you will be looking 
 - **Updates to this README.md file describing your solution along with any known issues**
   - I have updated this README.md file along the way.
 
-#Best Practices
+# Best Practices
 
 There are some best practices that are more or less universal, such as least privilege and security in depth. There are some best practices that are arbitrary and/or minimal in scope, like organization-specific programming patterns. The more interesting and difficult best practices to implement are the ones that occupy the middle of that spectrum, and I would like to discuss where my POC falls short of an ideal and what would need to be done in order to close that gap. But before I do that, it would also be helpful to determine what the use case will be for the production-ready implemention of this system to determine what best practices we should adhere to. 
 
@@ -74,7 +74,7 @@ As mentioned in the README.md there's a lot of work I know needs to be done here
 
 **Gluster design**
 - To a large degree, many of the best practices impacted by use case are relevant here. The Gluster Administration Guide (https://docs.gluster.org/en/latest/Administrator Guide/) offers a variety of details as to configuration and use, as does the Red Hat Administration Guide (https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3.5/html/administration_guide/index)
-- I didn't conform to the suggested brick naming conventions, which suggests /data/glusterfs/<volume>/<brick>/brick
+- I didn't conform to the suggested brick naming conventions, which suggests /data/glusterfs/\<volume>/<brick>/brick
 - I only created a 2 node system as an MVP, which is susceptible to split brain under certain conditions. Either an arbiter volume or a replica 3 volume would control for that risk (with different tradeoffs).
 - Testing the replication from the Gluster nodes is not a great practice, since I can't imagine any use case at all where the only consumers of gluster are the Gluster nodes themselves. In an ideal POC I would have instantiated a client node that mounted the volumes on startup and then used it as part of a larger and automated testing suite.
 - Enabling TLS would be a good idea, depending on the sensitivity of the information stored on the cluster
