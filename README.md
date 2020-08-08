@@ -1,7 +1,5 @@
 # lrpoc
 LR POC
-# lrpoc
-LR POC
 
 .01 release. Working terraform module for AWS infrastructure with validated file copy to the inside of the machine. Still need security groups on the cluster instances to control gluster communication. This should be sufficient to move onto Ansible setup. 
 
