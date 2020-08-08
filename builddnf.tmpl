@@ -1,0 +1,62 @@
+---
+- name: Setup Gluster nodes
+  hosts: gluster_nodes
+  become: true
+
+  tasks:
+    - name: Create a ext4 filesystem on /dev/xvdf and check disk blocks
+      filesystem:
+        fstype: xfs
+        dev: /dev/xvdf
+    - name: mount volumes1
+      mount:
+        path: /glustervol
+        state: mounted
+        fstype: xfs
+        src: /dev/xvdf
+    - name: install gluster
+      dnf:
+        name: glusterfs
+        state: latest
+    - name: install gluster-cli
+      dnf:
+        name: glusterfs-cli
+        state: latest
+    - name: install glusterfs-server
+      dnf:
+        name: glusterfs-server
+        state: latest
+    - name: install glusterfs-client
+      dnf:
+        name: glusterfs-client
+        state: latest      
+    - name: prep gluster stuff
+      file:
+        state: directory
+        path: /glustervol/brick1
+        mode: '0755'
+    - name: prep gluster stuff
+      file:
+        state: directory
+        path: /testmount
+        mode: '0755'
+    - name: start glusterd
+      systemd:
+        name: glusterd
+        enabled: yes
+        state: started
+    - name: create gluster volume
+      gluster_volume:
+        state: present
+        name: test
+        replicas: 2
+        bricks: /glustervol/brick1/b1
+        cluster: 
+%{ for ip in private-ips ~}
+          - ${ip}
+%{ endfor ~}
+      run_once: true
+    - name: start gluster
+      gluster_volume:
+        state: started
+        name: test

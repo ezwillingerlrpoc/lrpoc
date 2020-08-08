@@ -39,7 +39,7 @@ variable "aws_region" {
 }
 variable "rhel_ami_owner" {
     description = "Owner ID of AMI"
-    default = "309956199498"
+    default = "125523088429"
 }
 
 #micro is fine for a POC
