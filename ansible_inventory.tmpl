@@ -1,0 +1,4 @@
+[gluster_nodes]
+%{ for ip in private-ips ~}
+${ip}
+%{ endfor ~}

@@ -8,6 +8,12 @@ provider "aws" {
 provider "http" {
     version = "~> 1.2"
 }
+provider "local" {
+    version = "~> 1.4"
+}
+provider "template" {
+    version = "~> 2.1"
+}
 
 #SSH Key
 resource "aws_key_pair" "rsa_ssh_key" {
@@ -19,8 +25,7 @@ resource "aws_key_pair" "rsa_ssh_key" {
 #region AZs
 data "aws_availability_zones" "main" {}
 
-#FIXME
-#AMI ID
+
 data "aws_ami" "rhel_ami" {
     most_recent = true
     owners      = ["${var.rhel_ami_owner}"]

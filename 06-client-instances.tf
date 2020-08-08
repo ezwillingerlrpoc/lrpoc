@@ -29,17 +29,45 @@ resource "aws_security_group" "allow_ssh" {
         #cidr_blocks = ["0.0.0.0/0"]
         cidr_blocks = ["${data.http.public_ip.body}/32"]
     }
+    ingress {
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = [aws_vpc.storage-cluster-vpc.cidr_block]
+    }
+    egress {
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
 }
+
+resource "local_file" "ansible_inventory" {
+    content = templatefile("ansible_inventory.tmpl",
+        {
+            private-ips = flatten(aws_network_interface.storage-cluster-glusterd-net-if.*.private_ips)
+        }
+    )  
+    filename = "${path.module}\\ansible_inventory"
+}
+/*
+output "hosts" {
+    value = local_file.ansible_inventory
+}
+*/
+
 resource "aws_instance" "storage-cluster-client-instance" {
     ami = data.aws_ami.rhel_ami.id
     instance_type = var.instance_type
     key_name = aws_key_pair.rsa_ssh_key.key_name
-    user_data = file("userdata.txt")
+    user_data = file("userdata_client.txt")
     network_interface {
         network_interface_id = aws_network_interface.storage-cluster-client-net-if.id
         device_index = 0
     }
-    #vpc_security_group_ids = 
+    
     provisioner "file" {
         source = var.ssh_priv_key
         destination = "~/.ssh/id_rsa"
@@ -50,9 +78,28 @@ resource "aws_instance" "storage-cluster-client-instance" {
             private_key = file(var.ssh_priv_key)
         }
     }
+    provisioner "remote-exec" {
+        inline = [
+            "chmod 600 ~/.ssh/id_rsa",
+            "mkdir ~/ansible_files/"
+        ]
+        connection {
+            host = aws_eip.storage-cluster-net-eip.public_ip
+            type        = "ssh"
+            user        = "ec2-user"
+            private_key = file(var.ssh_priv_key)
+        }
+    }
+    
+    #this one really didnt want to work
+    #and to hack it to work i have to write an ansible_inventory file manually
+    #but terraform destroy removes that file so I have to recreate it each destroy
+    #yeah provisioners really aren't ideal
+    #use S3 after figuring out the manual file thing
     provisioner "file" {
-        source = var.foobar
-        destination = "~/foobar.txt"
+        #why do I need to wrap this in file()?
+        content = file("${path.module}\\ansible_inventory")
+        destination = "~/ansible_files/hosts"
         connection {
             host = aws_eip.storage-cluster-net-eip.public_ip
             type = "ssh"
@@ -60,9 +107,9 @@ resource "aws_instance" "storage-cluster-client-instance" {
             private_key = file(var.ssh_priv_key)
         }
     }
-}
-
+}/*
     
+   */ 
     #do I need to put the private key on the inside for ansible?
     #need the host IPs/names for ansible later
     #also setup scripts or whatever that dont go in userdata

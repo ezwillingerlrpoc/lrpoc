@@ -45,7 +45,7 @@ variable "rhel_ami_owner" {
 #micro is fine for a POC
 variable "instance_type" {
     type = string
-    default = "t3.micro"
+    default = "t2.micro"
 }
 
 variable "vpc_cidr" {
@@ -71,7 +71,7 @@ variable "glusterd_ebs_device_name_prefix" {
 
 # This is in Gb, small is fine for a POC
 variable "glusterd_ebs_volume_size" {
-    default = "10"
+    default = "11"
 }
 
 variable "foobar" {
