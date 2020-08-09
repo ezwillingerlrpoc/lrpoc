@@ -1,6 +1,14 @@
-#LR POC
+# Executive Summary
 
-# 0.1 release
+This 2-node replicated Gluster POC fulfills all the requirements set out by the product owner, and as such, should be considered a viable MVP for discussion as to whether or not we move forward with Gluster in Project Pineapple. Given that the research team still hasn't decided on the final use case for Project Pineapple, I focused on the lean technical aspects of the POC with a system-level discussion of best practices below.  
+
+The deployment, while functional, has some non-optimal design choices (in favor of lean testing functionality) and if we move forward my top priority for v0.2 is to increase the AWS security perimeter with IAM permissions, security groups, and instance-level firewalls and to remove the in-cloud Ansible control node and shift the entire deployment to be bootstraped from Ansible rather than from Terraform. While there will be some development work necessary to implement this change, it may decrease cloud opex by as much as 33% due to simplified architecture. We will also be able to iterate our designs faster and more effectively, as well as scale Project Pineapple to more complex implementations. This may allow for bolt-on modules to interface with Project Artichoke and Project Jalapeno as well.
+
+If you would like to investigate this POC, please clone the repo locally and run LrPocRunMe.ps1 to kick things off. 
+
+## 0.1 release
+
+### Requirements
 
 This release fulfills the requirements of the POC, namely:
 - **The cluster must successfully deploy from scratch by running a single command or script**
@@ -11,13 +19,13 @@ This release fulfills the requirements of the POC, namely:
   - I didn't automate this, although automated testing could be accomplished with another playbook. My testing regime was as follows:
     ```
      From each host: sudo mount -t glusterfs localhost:/test /testmount
-     From host1: sudo touch file01.txt
+     From host1: sudo touch /testmount/file01.txt
      From host2: ls /testmount
      file01.txt is there
      From EC2 console: shutdown host1
      From host2: ls /testmount
      File01.txt is there
-     From host2: sudo touch file02.whileotherhostwasdown.txt
+     From host2: sudo touch /testmount/file02.whileotherhostwasdown.txt
      From EC2 console: start host1
      From host1: ls /testmount
      file02.whileotherhostwasdown.txt is there
@@ -30,28 +38,29 @@ Furthermore, it displays most or all of the characteristics you will be looking 
 - **Idempotency**
   - I have applied the Terraform and Ansible templates on top of themselves many times.
 - **Overall best practices for the tools, languages, and/or approaches you use**
-  - For the purposes of the POC, I have cut several corners. Where appropriate, I have included comments in code or in the README.md file indicating as such. I will also be writing a great deal more about best practices down below.
+  - For the purposes of the POC, I have cut several corners. Where appropriate, I have included comments in code or in the README.md file indicating as such. I will also be writing a great deal more about best practices and gap analysis down below.
 - **We prefer your solution utilize Ansible and an Infrastructure-as-Code technology (e.g. Vagrant or Terraform)**
   - As mentioned earlier, I have used Ansible and Terraform with a Powershell wrapper.
 - **Updates to this README.md file describing your solution along with any known issues**
   - I have updated this README.md file along the way.
 
-# Best Practices
+### Best Practices
 
 There are some best practices that are more or less universal, such as least privilege and security in depth. There are some best practices that are arbitrary and/or minimal in scope, like organization-specific programming patterns. The more interesting and difficult best practices to implement are the ones that occupy the middle of that spectrum, and I would like to discuss where my POC falls short of an ideal and what would need to be done in order to close that gap. But before I do that, it would also be helpful to determine what the use case will be for the production-ready implemention of this system to determine what best practices we should adhere to. 
 
-- It's possible that this is designed as an small on-prem (production) scratch volume for ingesting sysvol logs from a variety of collectors before it is ETLed and ultimately stored in a database of some sort on a different storage solution. If so, there might be no requirement for distributed read capacity, very little requirement for long term (e.g > 1 hour) data storage, and the primary requirement would be small file throughput with plenty of buffering. Given its on-prem nature, we might be constrained by client storage performance (if the product is an appliance rather than a hardware node) and would have to make tradeoffs for performance tuning. If, however, it was a similar use case where there were multiple scratch volumes for multiple collectors across a multi-cloud enterprise, distributed read/write access would likely be more desirable. 
+- It's possible that this is designed as an small on-prem (production) scratch volume for ingesting syslogs from a variety of collectors before it is ETLed and ultimately stored in a database of some sort on a different storage solution. If so, there might be no requirement for distributed read capacity, very little requirement for long term (e.g > 1 hour) data storage, and the primary requirement would be small file throughput with plenty of buffering. Given its on-prem nature, we might be constrained by client storage performance (if the product is a packaged appliance rather than a hardware node) and would have to make tradeoffs for performance tuning. If, however, it was a similar use case where there were multiple scratch volumes for multiple collectors across a multi-cloud enterprise, distributed read/write access would likely be more desirable. 
 
 - It's also possible that this is designed to house working data on-prem for HPC clusters in a development environment, in which case I would propose cost-effective blazingly fast distributed replication, tiered storage, carefully selected hardware backend and interconnects, etc. (reference https://events.static.linuxfound.org/sites/events/files/slides/Storage-Extremes-Lessons-Linux-Foundation-Vault-03-2017.pdf which ends at MarFS but asserts that Gluster is probably the closest solution to MarFS). All of this would require extremely deep dives into file system- and network- level performance tuning, and would be orders of magnitude more expensive than simply standing up a two node replication on t2.micro instances, as I have done.
 
-So given that there are many unanswered questions as to the use case of this POC, I instead chose to focus on functionality ("does it meet the stated requirements?", or in other words, "Is this an MVP?") with the goal of talking about best practices at a systems level, which I have done above, rather than picking in a vacuum *which* best practices I would adhere to That leaves us to discuss a gap analysis of known shortcomings with my MVP and what I would do make it a more maximum viable product.
+So given that there are many unanswered questions as to the use case of this POC, I instead chose to focus on functionality ("does it meet the stated requirements?", or in other words, "Is this an MVP?") with the goal of talking about best practices at a systems level, which I have done above, rather than picking in a vacuum *which* best practices I would adhere to. That leaves us to discuss a gap analysis of known shortcomings with my MVP and what I would do make it a more maximum viable product.
 
 
 **AWS Infrastructure**
 
-As mentioned in the README.md there's a lot of work I know needs to be done here that I handwaved away in favor of an MVP. AWS has done a great deal of work to publish best practices (e.g. the well architected framework) and released many tools to help implementing them (Inspector). While many of these practices aren't exactly mandatory in development sandboxes, my experience is that dev environments tend to exhibit at least some configuration drift, and the closer pre-production environments can adhere to the final standards, the fewer bugs there will be to chase down in the QA environments.
+As mentioned in the README.md there's a lot of work I know needs to be done here that I handwaved away in favor of an MVP. AWS has done a great deal of work to publish best practices (e.g. the well architected framework) and released  tools to help implementing them (Inspector). While many of these practices aren't exactly mandatory in development sandboxes, my experience is that dev environments tend to exhibit at least some configuration drift, and the closer pre-production environments can adhere to the final standards, the fewer bugs there will be to chase down in the QA environments.
 - EC2 security groups need to be locked down to only known required ports (e.g. TCP/80 and/or 443 outbound, TCP/22 inside the VPC and also between EC2 instances and Terraform deployment infrastructure, and the Gluster ports TCP/ and UDP/24007-24008 and 49152-[49152+n] (for n bricks) for both node to node and also node to client communication.
   - Using prebuilt AMIs with all the necessary packages already installed may remove the requirement for HTTP/S access to repositories for package installation.
+- Network access for clients is dependent on use case. Traffic may pass through a TGW (connected on the backend to DX, VPC, or VPN), or plausibly run on remote workstations in AWS workspaces. 
 - The servers should have software firewalls configured to restrict access to the same ports.
 - The terraform IAM user should be restricted to only the permissions necessary to instantiate the POC, and perhaps MFA should be required (this is to a large degree an organizational consideration rather than a technical one).
 - Various AWS logging and security systems should be turned on, including Cloudtrail, VPC flow logs, GuardDuty, and Inspector, among others, but CloudTrail is the most important one here.
@@ -62,28 +71,33 @@ As mentioned in the README.md there's a lot of work I know needs to be done here
 - Support agreements are an excellent thing in enterprise environments. RHEL would likely be a better choice than Fedora.
 
 **Terraform Design**
-- I use several provisioners for the Ansible control node instance. Documentation suggests using provisioners as a last resort. In a non-MVP situation, I would ideally use S3 for the file provisioners and userdata or a pre-existing configuration management solution for the remote-exec provisioners.
-- As mentioned in the v0.02 release, the combination of local_file resource and templatefile() function didn't work as smoothly as I had hoped, and I had to band-aid them by manually (in the wrapper script) creating the missing files in the event that terraform destroy was run. I know there must be a better solution.
+- I use several provisioners for the Ansible control node instance. Documentation suggests using provisioners as a last resort. In a non-MVP situation, I would ideally use S3 for the file provisioners and userdata or a pre-existing configuration management solution for the remote-exec provisioners. Alternatively, as mentioned in the Ansible section, I could bootstrap Terraform from inside of Ansible, and use Ansible to handle the provisioning.
+- As mentioned in the v0.02 release, the combination of local_file resource and templatefile() function didn't work as smoothly as I had hoped, and I had to band-aid them by manually (in the wrapper script) creating the missing files. I have proposed several alternatives.
 - The EIP association for the Ansible control node makes an assumption that the EIP only has one private IP address assigned(line 12 in 06-client-instances.tf) It's arguably possible that a more elegant solution would be required in more complicated deployments.
 - The 7 separate files is a little unwieldy. I'm not aware of a documented best practice, but it seems unnecessarily verbose.
 - My resource and file naming convention is a little crazy. It could use some rework, but as an MVP it's uninteresting. If I was presenting a lunch and learn where I was walking through the workflow, I would want it cleaned up. Similarly, some of the comments that I wrote to myself along the way can be removed.
 
 **Ansible design**
-- One notable shortcoming in the playbook is that I don't perform an update or upgrade \* to bring all packages in the AMI up to date. I did this to iterate quicker without having to wait for approximately 100 packages to be downloaded and updated. If a golden AMI was used, this wouldn't be relevant. Since I am using a community AMI, this is definitely not ideal.
-- I use --ssh-common-args='-o StrictHostKeyChecking=no' passed to Ansible rather than modifying known_hosts on the control node. Stack has a solution available that I would need to test before implementing (https://stackoverflow.com/a/39083724), but its well ranked and appears superficially reasonable.
+- As mentioned in the Terraform section, I manually create an Ansible inventory file and use Terraform to inject it into the instance. I considered the Ansible control node to be part of the POC infrastructure as a whole, as I don't have an Ansible control node set up in my personal environment. In hindsight, this is poorly conceived, as a proper development environment would have a control node if it was part of the overall deployment strategy. In that context (and in a devops context in general), a static inventory file doesn't make much sense. For a well functioning development infrastructure, I should have done one of the following two things:
+  - Used the **aws_ec2** inventory plugin for Ansible to generate inventory files on the fly using live data (requires boto, some playbook modification as well as passing AWS credentials into the AWS-residing control node. Not a big deal but plausibly a security concern)
+  - Used the **terraform module** for Ansible which would allow an Ansible control node in my local environment to bootstrap the Terraform deployment, rather than my implementation of allowing Terraform to bootstrap the Ansible deployment (requires different routing and networking configuration between the development environment and the AWS cloud). It's likely that this implementation would also have not-yet-encountered drawbacks, but given the troubles I had with the inventory file, I suspect the tradeoffs would be worth it. This is my top priority new feature to implement for v0.2.
+- One notable shortcoming in the playbook is that I don't perform an update or upgrade \* to bring all packages in the AMI up to date. I did this to iterate quicker without having to wait for approximately 100 packages to be downloaded and updated. If a golden AMI was used, it wouldn't be relevant. Since I am using a community AMI, this is definitely not ideal.
+- I use --ssh-common-args='-o StrictHostKeyChecking=no' passed to Ansible rather than modifying known_hosts on the control node. Stack has a solution available that I would need to test before implementing (https://stackoverflow.com/a/39083724), but it's well ranked and appears superficially reasonable.
+
 
 **Gluster design**
-- To a large degree, many of the best practices impacted by use case are relevant here. The Gluster Administration Guide (https://docs.gluster.org/en/latest/Administrator Guide/) offers a variety of details as to configuration and use, as does the Red Hat Administration Guide (https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3.5/html/administration_guide/index)
-- I didn't conform to the suggested brick naming conventions, which suggests /data/glusterfs/\<volume>/<brick>/brick
+- To a large degree, many of the best practices impacted by use case are relevant here. The Gluster Administration Guide (https://docs.gluster.org/en/latest/Administrator Guide/) offers a variety of details as to configuration and use, as does the Red Hat Administration Guide (https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3.5/html/administration_guide/index).
+- I didn't conform to the suggested brick naming conventions, which suggests /data/glusterfs/\<volume>/\<brick>/brick.
 - I only created a 2 node system as an MVP, which is susceptible to split brain under certain conditions. Either an arbiter volume or a replica 3 volume would control for that risk (with different tradeoffs).
-- Testing the replication from the Gluster nodes is not a great practice, since I can't imagine any use case at all where the only consumers of gluster are the Gluster nodes themselves. In an ideal POC I would have instantiated a client node that mounted the volumes on startup and then used it as part of a larger and automated testing suite.
-- Enabling TLS would be a good idea, depending on the sensitivity of the information stored on the cluster
-- The Linux OS can also be tuned for performance (e.g. https://docs.gluster.org/en/latest/Administrator Guide/Linux Kernel Tuning/) in addition to the Gluster nodes (e.g. https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3/html/administration_guide/small_file_performance_enhancements)
+- Testing the replication from the Gluster nodes is not a great practice, since I can't imagine any use case at all where the only consumers of Gluster are the Gluster nodes themselves. In an ideal POC I would have instantiated a client node that mounted the volumes on startup and then used it as part of a larger and automated testing suite (some details here https://docs.gluster.org/en/latest/Administrator Guide/Setting Up Clients/).
+- At the time of testing, permissions on the mounted nodes weren't correct.
+- Enabling TLS would be a good idea, depending on the sensitivity of the information stored on the cluster.
+- The Linux OS can also be tuned for performance (e.g. https://docs.gluster.org/en/latest/Administrator Guide/Linux Kernel Tuning/) in addition to the Gluster nodes (e.g. https://access.redhat.com/documentation/en-us/red_hat_gluster_storage/3/html/administration_guide/small_file_performance_enhancements).
 - It's worth mentioning that the Gluster Install Guide indicates (https://docs.gluster.org/en/latest/Install-Guide/Setup_aws/) that if a node reboots, there is some work to be done to get it back to a healthy state. My superficial testing found no evidence of this, and in a different page of the documentation, there was evidence that the documentation was a point version behind. More testing will need to be done to prove the resiliency of this AWS implementation.
 
+--------------------
 
-
-# .02 release. 
+## .02 release. 
 
 Ansible is working but Gluster isnt. Ansible run is manual, and there are some problems with how the ansible inventory is dynamically created by Terraform (there is a requirement for a manual file write for a file provisioner that I haven't figured out how to get past). See requirement note 3 and release note 3 for more details.
 
@@ -92,9 +106,8 @@ I forgot to mention the requirements in the .01 release that have already been m
 
 1. An SSH key pair, the paths for which are declared in vars.tf 
 2. An appropriate IAM role with appropriately locked down permissions. For this POC, I used the AWS builtin SystemAdministrator role because it was expedient. A proper implementation would be restricted. That could be done by turning on CloudTrail and compiling a list of the calls made. The IAM role creation would still need to be done by hand unless one wanted to feed AWS root credentials into Terraform for bootstrapping, which is doable, but certainly increases the complexity of this POC.
-3. An "ansible_inventory" file in the root folder. As of v0.02, I generate the ansible_inventory file dynamically using a template to push into the Ansible control node (called the "client" instance, because originally it was going to test the gluster volume but then its scope expanded). (See release note 3 below for more discussion of the ansible_inventory file). 
-
-5. The client instance only allows SSH in from the public IP of the workstation running Terraform, which is done with an API call to a public internet service. This service could go dark at any moment, but since I am on a home connection with a dynamic IP, it was expedient. In a corporate infrastructure with well-defined network topologies, this could be a constant stored in a variable or probably even declared statically depending on how long the POC was expected to run for.
+3. An "ansible_inventory" file in the root folder. As of v0.02, I generate the ansible_inventory file dynamically using a template to push into the Ansible control node (called the "client" instance, because originally it was going to test the Gluster volume but then its scope expanded). (See release note 3 below for more discussion of the ansible_inventory file). 
+4. The client instance only allows SSH in from the public IP of the workstation running Terraform, which is done with an API call to a public internet service. This service could go dark at any moment, but since I am on a home connection with a dynamic IP, it was expedient. In a corporate infrastructure with well-defined network topologies, this could be a constant stored in a variable or probably even declared statically depending on how long the POC was expected to run for.
 
 Notes for this release:
 
@@ -118,7 +131,7 @@ Notes for this release:
 
 --------------------
 
-# .01 release. 
+## .01 release. 
 
 Working terraform module for AWS infrastructure with validated file copy to the inside of the machine. Still need security groups on the cluster instances to control gluster communication. This should be sufficient to move onto Ansible setup. 
 
